@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>シレン6 アイテム識別</title>
+
+<!-- PWA / フルスクリーン設定 -->
+<meta name="theme-color" content="#121216">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- 埋め込みマニフェスト（アドレスバーを消す standalone 設定を含む） -->
+<link rel="manifest" href='data:application/manifest+json;utf-8,{
+  "name": "シレン6 識別ツール",
+  "short_name": "シレン6識別",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1a1a20",
+  "theme_color": "#121216",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23262632%22/><text y=%2265%22 font-size=%2260%22 x=%2220%22>🍙</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}'>
+
+<style>
+  :root {
+    --bg-color: #1a1a20;
+    --card-bg: #262632;
+    --text-color: #e0e0e0;
+    --accent: #ff9800;
+    --identified-bg: #223c2c;
+    --identified-border: #4caf50;
+    --red-item: #ff6b81;
+    --blue-item: #5dade2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  
+  body {
+    background: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  header { background: #121216; padding: 6px 10px 4px 10px; flex-shrink: 0; border-bottom: 1px solid #333; }
+  .legend-bar { display: flex; gap: 6px; font-size: 10px; margin-bottom: 6px; }
+  .badge { padding: 1px 5px; border-radius: 4px; font-weight: bold; }
+  .badge-red { background: rgba(255, 107, 129, 0.2); color: var(--red-item); border: 1px solid var(--red-item); }
+  .badge-blue { background: rgba(93, 173, 226, 0.2); color: var(--blue-item); border: 1px solid var(--blue-item); }
+  .badge-check { background: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid #4caf50; }
+
+  .tabs { display: flex; background: #1c1c24; border-radius: 6px; gap: 2px; }
+  .tab-btn { flex: 1; padding: 8px 0; text-align: center; border: none; background: none; color: #888; font-weight: bold; font-size: 13px; cursor: pointer; }
+  .tab-btn.active { color: #fff; background: var(--accent); border-radius: 4px; }
+
+  .control-panel { background: #1e1e28; padding: 6px 10px 8px 10px; border-bottom: 1px solid #333; flex-shrink: 0; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .state-chips { display: flex; gap: 4px; }
+  .chip-btn {
+    background: #2d2d3c; border: 1px solid #444; color: #bbb;
+    padding: 3px 8px; font-size: 11px; border-radius: 12px; cursor: pointer; font-weight: bold;
+  }
+  .chip-btn.active { background: #4a90e2; color: #fff; border-color: #70a6ff; }
+
+  .reset-box { display: flex; gap: 5px; align-items: center; }
+  .toggle-filter-btn {
+    font-size: 10px; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-weight: bold;
+    border: 1px solid #4caf50; background: rgba(76, 175, 80, 0.15); color: #81c784;
+  }
+  .toggle-filter-btn.hiding { border-color: #e57373; background: rgba(244, 67, 54, 0.2); color: #ff8a80; }
+  .reset-btn { font-size: 10px; padding: 2px 6px; background: #383846; border: 1px solid #555; color: #ccc; border-radius: 4px; cursor: pointer; }
+  .reset-btn.all { background: #4a1d1d; border-color: #7a2828; }
+
+  .price-row { display: flex; align-items: center; margin-bottom: 4px; }
+  .price-row:last-child { margin-bottom: 0; }
+  .row-label { font-size: 11px; font-weight: bold; width: 44px; color: #ffca28; flex-shrink: 0; }
+  .btn-scroll { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 2px; flex: 1; -webkit-overflow-scrolling: touch; }
+  .btn-scroll::-webkit-scrollbar { display: none; }
+  .price-btn {
+    background: #2b2b3a; border: 1px solid #444; color: #eee;
+    padding: 4px 7px; font-size: 11px; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  }
+  .price-btn.selected { background: var(--accent); color: #000; font-weight: bold; border-color: #ffb74d; }
+
+  .clear-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 2px; }
+  .current-filter-text { font-size: 11px; color: #aaa; }
+  .clear-filter-btn { font-size: 10px; color: #ffca28; background: none; border: none; cursor: pointer; text-decoration: underline; }
+
+  .scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px 80px 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .item-list { display: flex; flex-direction: column; gap: 6px; }
+  
+  .item-card {
+    background: var(--card-bg); border: 1px solid #38384a;
+    border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 5px;
+    transition: 0.15s;
+  }
+  .item-card.is-identified { background: var(--identified-bg); border-color: var(--identified-border); }
+  .item-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .item-name { font-weight: bold; font-size: 14px; }
+  .name-red { color: var(--red-item); }
+  .name-blue { color: var(--blue-item); }
+  .item-check-icon { font-size: 11px; color: #777; }
+  .item-card.is-identified .item-check-icon { color: #81c784; font-weight: bold; }
+
+  .item-details { display: flex; gap: 8px; font-size: 11px; color: #aaa; align-items: center; flex-wrap: wrap; }
+  
+  .capacity-scroll-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    margin-top: 2px;
+  }
+  .capacity-scroll-wrap::-webkit-scrollbar { height: 4px; }
+  .capacity-scroll-wrap::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+  
+  .capacity-table {
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 4px 6px;
+    border-radius: 4px;
+    border: 1px solid #333344;
+    width: max-content;
+  }
+  .cap-cell {
+    font-size: 10px;
+    background: #1e1e28;
+    padding: 2px 5px;
+    border-radius: 3px;
+    border: 1px solid #444458;
+    color: #bbb;
+    white-space: nowrap;
+  }
+  .cap-cell b { color: #ffca28; }
+  .cap-cell.is-hit {
+    border-color: var(--accent);
+    background: rgba(255, 152, 0, 0.2);
+    color: #fff;
+    font-weight: bold;
+  }
+
+  .item-memo-box { display: flex; align-items: center; margin-top: 2px; }
+  .memo-input {
+    width: 100%; background: #181820; border: 1px solid #3c3c4c; color: #fff;
+    padding: 3px 6px; font-size: 11px; border-radius: 4px;
+  }
+  .memo-input:focus { border-color: var(--accent); outline: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="legend-bar">
+    <span class="badge badge-red">赤:入手時識別済</span>
+    <span class="badge badge-blue">青:神髄非出現</span>
+    <span class="badge badge-check">緑枠:識別済</span>
+  </div>
+  <div class="tabs" id="categoryTabs"></div>
+</header>
+
+<div class="control-panel">
+  <div class="panel-header">
+    <div class="state-chips" id="stateChips">
+      <button class="chip-btn active" onclick="setMod('normal')">通常</button>
+      <button class="chip-btn" onclick="setMod('blessed')">祝福 (×2)</button>
+      <button class="chip-btn" onclick="setMod('cursed')">呪い (×0.87)</button>
+    </div>
+    <div class="reset-box">
+      <button class="toggle-filter-btn" id="hideIdentifiedBtn" onclick="toggleHideIdentified()">済: 表示</button>
+      <button class="reset-btn" onclick="resetCurrentTab()">タブ消去</button>
+      <button class="reset-btn all" onclick="resetAllTabs()">全消去</button>
+    </div>
+  </div>
+
+  <div class="price-row">
+    <span class="row-label">買値:</span>
+    <div class="btn-scroll" id="buyBtns"></div>
+  </div>
+  <div class="price-row">
+    <span class="row-label">売値:</span>
+    <div class="btn-scroll" id="sellBtns"></div>
+  </div>
+
+  <div class="clear-row">
+    <span class="current-filter-text" id="filterStatus">全件表示中</span>
+    <button class="clear-filter-btn" onclick="clearFilter()">全件に戻す</button>
+  </div>
+</div>
+
+<div class="scroll-container">
+  <div class="item-list" id="itemList"></div>
+</div>
+
+<script>
+// --- Service Worker の埋め込み登録（完全PWA化） ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    const swCode = `
+      self.addEventListener('install', e => self.skipWaiting());
+      self.addEventListener('activate', e => self.clients.claim());
+      self.addEventListener('fetch', e => {
+        e.respondWith(
+          fetch(e.request).catch(() => caches.match(e.request))
+        );
+      });
+    `;
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).catch(() => {});
+  });
+}
+
+const DATA = {
+  ring: [
+    { name: "遠投の腕輪", buy: 1500, sell: 600 },
+    { name: "ヘタ投げの腕輪", buy: 1500, sell: 600 },
+    { name: "ボヨヨンの腕輪", buy: 1500, sell: 600 },
+    { name: "連射の腕輪", buy: 1500, sell: 600 },
+    { name: "諸刃の腕輪", buy: 1500, sell: 600 },
+    { name: "痛恨の腕輪", buy: 1500, sell: 600 },
+    { name: "高飛びの腕輪", buy: 1500, sell: 600 },
+    { name: "爆発の腕輪", buy: 1500, sell: 600 },
+    { name: "罠増しの腕輪", buy: 1500, sell: 600 },
+    { name: "垂れ流しの腕輪", buy: 1500, sell: 600 },
+    { name: "金垂れ流しの腕輪", buy: 1500, sell: 600 },
+    { name: "ちからの腕輪", buy: 2000, sell: 800 },
+    { name: "睡眠よけの腕輪", buy: 2500, sell: 1000 },
+    { name: "気配察知の腕輪", buy: 2500, sell: 1000 },
+    { name: "道具感知の腕輪", buy: 2500, sell: 1000 },
+    { name: "大砲強化の腕輪", buy: 2500, sell: 1000 },
+    { name: "呪いよけの腕輪", buy: 3000, sell: 1200 },
+    { name: "水グモの腕輪", buy: 3000, sell: 1200 },
+    { name: "浮遊の腕輪", buy: 3000, sell: 1200 },
+    { name: "魔物呼びの腕輪", buy: 3000, sell: 1200 },
+    { name: "胃拡張の腕輪", buy: 3500, sell: 1400 },
+    { name: "胃縮小の腕輪", buy: 3500, sell: 1400 },
+    { name: "弾きよけの腕輪", buy: 3500, sell: 1400 },
+    { name: "値切りの腕輪", buy: 3500, sell: 1400 },
+    { name: "しあわせの腕輪", buy: 4000, sell: 1600 },
+    { name: "混乱よけの腕輪", buy: 4000, sell: 1600 },
+    { name: "回復の腕輪", buy: 5000, sell: 2000 },
+    { name: "錆よけの腕輪", buy: 5000, sell: 2000 },
+    { name: "透視の腕輪", buy: 5000, sell: 2000 },
+    { name: "裏道の腕輪", buy: 5000, sell: 2000 },
+    { name: "すれちがいの腕輪", buy: 5000, sell: 2000 },
+    { name: "毒消しの腕輪", buy: 6500, sell: 2600 },
+    { name: "壁抜けの腕輪", buy: 6500, sell: 2600 },
+    { name: "忍び足の腕輪", buy: 6500, sell: 2600 },
+    { name: "罠師の腕輪", buy: 7500, sell: 3000, blue: true },
+    { name: "鑑定師の腕輪", buy: 7500, sell: 3000, blue: true },
+    { name: "百発百中の腕輪", buy: 15000, sell: 6000 }
+  ],
+  grass: [
+    { name: "薬草", buy: 40, sell: 10 },
+    { name: "毒草", buy: 50, sell: 20 },
+    { name: "暴走の種", buy: 50, sell: 20 },
+    { name: "混乱草", buy: 70, sell: 25 },
+    { name: "睡眠草", buy: 70, sell: 25 },
+    { name: "目つぶし草", buy: 70, sell: 25 },
+    { name: "めぐすり草", buy: 70, sell: 25 },
+    { name: "すばやさ草", buy: 70, sell: 25 },
+    { name: "パワーアップ草", buy: 70, sell: 25 },
+    { name: "弟切草", buy: 80, sell: 30 },
+    { name: "高飛び草", buy: 100, sell: 40 },
+    { name: "くねくね草", buy: 100, sell: 40 },
+    { name: "かぐわし草", buy: 200, sell: 80 },
+    { name: "いやし草", buy: 200, sell: 80 },
+    { name: "胃拡張の種", buy: 200, sell: 80 },
+    { name: "胃縮小の種", buy: 200, sell: 80 },
+    { name: "ドラゴン草", buy: 250, sell: 100 },
+    { name: "復活の草", buy: 400, sell: 160 },
+    { name: "無敵草", buy: 400, sell: 160 },
+    { name: "不幸の種", buy: 400, sell: 160 },
+    { name: "命の草", buy: 500, sell: 200 },
+    { name: "毒消し草", buy: 600, sell: 240 },
+    { name: "ちからの草", buy: 700, sell: 280 },
+    { name: "しあわせ草", buy: 1000, sell: 400 },
+    { name: "天使の種", buy: 2000, sell: 800 },
+    { name: "超不幸の種", buy: 2000, sell: 800 }
+  ],
+  scroll: [
+    { name: "混乱の巻物", buy: 300, sell: 120 },
+    { name: "バクスイの巻物", buy: 300, sell: 120 },
+    { name: "ゾワゾワの巻物", buy: 300, sell: 120 },
+    { name: "真空斬りの巻物", buy: 300, sell: 120 },
+    { name: "識別の巻物", buy: 300, sell: 120, select: true },
+    { name: "銀封印の巻物", buy: 300, sell: 120, select: true },
+    { name: "生物集合の巻物", buy: 300, sell: 120 },
+    { name: "道具寄せの巻物", buy: 300, sell: 120 },
+    { name: "困った時の巻物", buy: 300, sell: 120 },
+    { name: "天の恵みの巻物", buy: 400, sell: 160, select: true },
+    { name: "地の恵みの巻物", buy: 400, sell: 160, select: true },
+    { name: "メッキの巻物", buy: 400, sell: 160, select: true },
+    { name: "印増大の巻物", buy: 400, sell: 160, select: true },
+    { name: "印消しの巻物", buy: 400, sell: 160, select: true },
+    { name: "おにぎりの巻物", buy: 400, sell: 160, select: true },
+    { name: "おはらいの巻物", buy: 400, sell: 160, select: true },
+    { name: "あかりの巻物", buy: 600, sell: 240 },
+    { name: "迷子の巻物", buy: 600, sell: 240 },
+    { name: "罠消しの巻物", buy: 600, sell: 240 },
+    { name: "銀はがしの巻物", buy: 600, sell: 240, select: true },
+    { name: "壺増大の巻物", buy: 600, sell: 240, select: true },
+    { name: "吸い出しの巻物", buy: 600, sell: 240, select: true },
+    { name: "呪いの巻物", buy: 600, sell: 240, select: true },
+    { name: "罠の巻物", buy: 600, sell: 240 },
+    { name: "水がれの巻物", buy: 1000, sell: 400 },
+    { name: "魔物部屋の巻物", buy: 1000, sell: 400 },
+    { name: "大部屋の巻物", buy: 1000, sell: 400 },
+    { name: "バクチの巻物", buy: 1000, sell: 400 },
+    { name: "くちなしの巻物", buy: 1000, sell: 400 },
+    { name: "拾えずの巻物", buy: 1000, sell: 400 },
+    { name: "敵加速の巻物", buy: 1000, sell: 400 },
+    { name: "聖域の巻物", buy: 1000, sell: 400 },
+    { name: "白紙の巻物", buy: 1000, sell: 400, red: true },
+    { name: "脱出の巻物", buy: 1000, sell: 400, blue: true },
+    { name: "全滅の巻物", buy: 3000, sell: 1200, blue: true },
+    { name: "ねだやしの巻物", buy: 10000, sell: 4000, blue: true }
+  ],
+  pot: [
+    { name: "保存の壺", baseBuy: 800, baseSell: 320, initMin: 3, initMax: 5 },
+    { name: "識別の壺", baseBuy: 800, baseSell: 320, initMin: 3, initMax: 5 },
+    { name: "変化の壺", baseBuy: 800, baseSell: 320, initMin: 3, initMax: 5 },
+    { name: "ただの壺", baseBuy: 800, baseSell: 320, initMin: 3, initMax: 5 },
+    { name: "やりすごしの壺", baseBuy: 800, baseSell: 320, initMin: 3, initMax: 5 },
+    { name: "底抜けの壺", baseBuy: 1000, baseSell: 400, initMin: 2, initMax: 4 },
+    { name: "換金の壺", baseBuy: 1000, baseSell: 400, initMin: 3, initMax: 5 },
+    { name: "手封じの壺", baseBuy: 1000, baseSell: 400, initMin: 3, initMax: 5 },
+    { name: "割れない壺", baseBuy: 1000, baseSell: 400, initMin: 3, initMax: 5 },
+    { name: "倉庫の壺", baseBuy: 1000, baseSell: 400, initMin: 2, initMax: 5 },
+    { name: "おはらいの壺", baseBuy: 1600, baseSell: 640, initMin: 2, initMax: 4 },
+    { name: "呪いの壺", baseBuy: 1600, baseSell: 640, initMin: 2, initMax: 4 },
+    { name: "笑いの壺", baseBuy: 2000, baseSell: 800, initMin: 2, initMax: 3, push: true },
+    { name: "背中の壺", baseBuy: 2000, baseSell: 800, initMin: 3, initMax: 5, push: true },
+    { name: "トドの壺", baseBuy: 2000, baseSell: 800, initMin: 3, initMax: 5, push: true },
+    { name: "水鉄砲の壺", baseBuy: 2000, baseSell: 800, initMin: 3, initMax: 5, push: true },
+    { name: "魔物の壺", baseBuy: 2000, baseSell: 800, initMin: 3, initMax: 5, push: true },
+    { name: "ビックリの壺", baseBuy: 2000, baseSell: 800, initMin: 3, initMax: 5, red: true },
+    { name: "合成の壺", baseBuy: 6000, baseSell: 2400, initMin: 3, initMax: 4 },
+    { name: "強化の壺", baseBuy: 10000, baseSell: 4000, initMin: 2, initMax: 3 },
+    { name: "弱化の壺", baseBuy: 10000, baseSell: 4000, initMin: 2, initMax: 3 }
+  ],
+  staff: [
+    { name: "感電の杖", baseBuy: 500, baseSell: 200, initMin: 4, initMax: 6 },
+    { name: "かなしばりの杖", baseBuy: 500, baseSell: 200, initMin: 4, initMax: 6 },
+    { name: "封印の杖", baseBuy: 500, baseSell: 200, initMin: 4, initMax: 6 },
+    { name: "ただの杖", baseBuy: 500, baseSell: 200, initMin: 4, initMax: 6 },
+    { name: "場所がえの杖", baseBuy: 500, baseSell: 200, initMin: 5, initMax: 7 },
+    { name: "吹き飛ばしの杖", baseBuy: 500, baseSell: 200, initMin: 5, initMax: 7 },
+    { name: "飛びつきの杖", baseBuy: 500, baseSell: 200, initMin: 5, initMax: 7 },
+    { name: "転ばぬ先の杖", baseBuy: 500, baseSell: 200, initMin: 5, initMax: 7 },
+    { name: "導きの杖", baseBuy: 700, baseSell: 280, initMin: 2, initMax: 4 },
+    { name: "トンネルの杖", baseBuy: 700, baseSell: 280, initMin: 4, initMax: 6 },
+    { name: "土塊の杖", baseBuy: 700, baseSell: 280, initMin: 4, initMax: 6 },
+    { name: "加速の杖", baseBuy: 700, baseSell: 280, initMin: 4, initMax: 6 },
+    { name: "鈍足の杖", baseBuy: 700, baseSell: 280, initMin: 4, initMax: 6 },
+    { name: "一時しのぎの杖", baseBuy: 700, baseSell: 280, initMin: 4, initMax: 6 },
+    { name: "幸せの杖", baseBuy: 1000, baseSell: 400, initMin: 4, initMax: 6 },
+    { name: "不幸の杖", baseBuy: 1000, baseSell: 400, initMin: 4, initMax: 6 },
+    { name: "痛み分けの杖", baseBuy: 1000, baseSell: 400, initMin: 5, initMax: 7 },
+    { name: "ガイコツの杖", baseBuy: 1000, baseSell: 400, initMin: 5, initMax: 7 },
+    { name: "身代わりの杖", baseBuy: 2000, baseSell: 800, initMin: 4, initMax: 6 },
+    { name: "桃まんの杖", baseBuy: 2000, baseSell: 800, initMin: 4, initMax: 6 }
+  ]
+};
+
+const CATEGORIES = [
+  { id: "ring", name: "腕輪" },
+  { id: "grass", name: "草" },
+  { id: "scroll", name: "巻物" },
+  { id: "pot", name: "壺" },
+  { id: "staff", name: "杖" }
+];
+
+const tabFilters = {
+  ring:  { mod: 'normal', activeByMod: { normal: null, blessed: null, cursed: null } },
+  grass: { mod: 'normal', activeByMod: { normal: null, blessed: null, cursed: null } },
+  scroll:{ mod: 'normal', activeByMod: { normal: null, blessed: null, cursed: null } },
+  pot:   { mod: 'normal', activeByMod: { normal: null, blessed: null, cursed: null } },
+  staff: { mod: 'normal', activeByMod: { normal: null, blessed: null, cursed: null } }
+};
+
+let currentTab = "ring";
+let hideIdentified = false;
+let userState = { identified: {}, memo: {} };
+
+const saved = localStorage.getItem("shiren6_save");
+if (saved) {
+  try {
+    const parsed = JSON.parse(saved);
+    userState = parsed.userState || { identified: {}, memo: {} };
+    if (parsed.hideIdentified !== undefined) hideIdentified = parsed.hideIdentified;
+  } catch(e){}
+}
+function saveState() {
+  localStorage.setItem("shiren6_save", JSON.stringify({ userState, hideIdentified }));
+}
+
+function init() {
+  updateHideBtnUI();
+  renderTabs();
+  switchTab("ring");
+}
+
+function toggleHideIdentified() {
+  hideIdentified = !hideIdentified;
+  saveState();
+  updateHideBtnUI();
+  renderItemList();
+}
+
+function updateHideBtnUI() {
+  const btn = document.getElementById("hideIdentifiedBtn");
+  if (hideIdentified) {
+    btn.textContent = "済: 除外中";
+    btn.className = "toggle-filter-btn hiding";
+  } else {
+    btn.textContent = "済: 表示中";
+    btn.className = "toggle-filter-btn";
+  }
+}
+
+function renderTabs() {
+  document.getElementById("categoryTabs").innerHTML = CATEGORIES.map(c => `
+    <button class="tab-btn ${c.id === currentTab ? 'active' : ''}" onclick="switchTab('${c.id}')">
+      ${c.name}
+    </button>
+  `).join('');
+}
+
+function switchTab(catId) {
+  currentTab = catId;
+  renderTabs();
+  updateChipUI();
+  renderPriceButtons();
+  renderItemList();
+  updateStatusText();
+}
+
+function setMod(mod) {
+  tabFilters[currentTab].mod = mod;
+  updateChipUI();
+  renderPriceButtons();
+  renderItemList();
+  updateStatusText();
+}
+
+function updateChipUI() {
+  const mod = tabFilters[currentTab].mod;
+  const chips = document.getElementById("stateChips").querySelectorAll(".chip-btn");
+  chips[0].className = "chip-btn" + (mod === 'normal' ? ' active' : '');
+  chips[1].className = "chip-btn" + (mod === 'blessed' ? ' active' : '');
+  chips[2].className = "chip-btn" + (mod === 'cursed' ? ' active' : '');
+}
+
+function getPricesForCurrentMod(catId, mod) {
+  const items = DATA[catId];
+  const buySet = new Set();
+  const sellSet = new Set();
+
+  const applyMod = (val) => {
+    if (mod === 'blessed') return val * 2;
+    if (mod === 'cursed') return Math.floor(val * 0.87);
+    return val;
+  };
+
+  if (catId === "pot" || catId === "staff") {
+    const maxCount = catId === "pot" ? 5 : 7;
+    items.forEach(item => {
+      const stepBuy = 100;
+      const stepSell = 40;
+      for (let c = 0; c <= maxCount; c++) {
+        buySet.add(applyMod(item.baseBuy + c * stepBuy));
+        sellSet.add(applyMod(item.baseSell + c * stepSell));
+      }
+    });
+  } else {
+    items.forEach(item => {
+      buySet.add(applyMod(item.buy));
+      sellSet.add(applyMod(item.sell));
+    });
+  }
+
+  const sortNum = arr => Array.from(arr).sort((a,b) => a - b);
+  return { buy: sortNum(buySet), sell: sortNum(sellSet) };
+}
+
+function renderPriceButtons() {
+  const tf = tabFilters[currentTab];
+  const active = tf.activeByMod[tf.mod];
+  const prices = getPricesForCurrentMod(currentTab, tf.mod);
+
+  const makeButtons = (type, list) => {
+    return list.map(val => {
+      const isSel = active && active.type === type && active.val === val;
+      return `<button class="price-btn ${isSel ? 'selected' : ''}" onclick="togglePriceFilter('${type}', ${val})">${val}</button>`;
+    }).join('');
+  };
+
+  document.getElementById("buyBtns").innerHTML = makeButtons('buy', prices.buy);
+  document.getElementById("sellBtns").innerHTML = makeButtons('sell', prices.sell);
+}
+
+function togglePriceFilter(type, val) {
+  const tf = tabFilters[currentTab];
+  const active = tf.activeByMod[tf.mod];
+  if (active && active.type === type && active.val === val) {
+    tf.activeByMod[tf.mod] = null;
+  } else {
+    tf.activeByMod[tf.mod] = { type, val };
+  }
+  renderPriceButtons();
+  renderItemList();
+  updateStatusText();
+}
+
+function clearFilter() {
+  const tf = tabFilters[currentTab];
+  tf.activeByMod[tf.mod] = null;
+  renderPriceButtons();
+  renderItemList();
+  updateStatusText();
+}
+
+function updateStatusText() {
+  const tf = tabFilters[currentTab];
+  const active = tf.activeByMod[tf.mod];
+  const el = document.getElementById("filterStatus");
+  const modLabel = tf.mod === 'blessed' ? '祝福' : (tf.mod === 'cursed' ? '呪い' : '通常');
+  if (active) {
+    const typeLabel = active.type === 'buy' ? '買値' : '売値';
+    el.innerHTML = `絞込: <b>${modLabel}・${typeLabel} ${active.val}</b>`;
+  } else {
+    el.innerHTML = `状態: <b>${modLabel}</b> (全件表示)`;
+  }
+}
+
+function matchItem(item, catId, activeFilter, mod) {
+  if (!activeFilter) return true;
+  const isPotStaff = (catId === "pot" || catId === "staff");
+  const step = activeFilter.type === 'buy' ? 100 : 40;
+
+  const checkValue = (baseVal) => {
+    let calc = baseVal;
+    if (mod === 'blessed') calc = baseVal * 2;
+    if (mod === 'cursed') calc = Math.floor(baseVal * 0.87);
+    return calc === activeFilter.val;
+  };
+
+  if (isPotStaff) {
+    const base = activeFilter.type === 'buy' ? item.baseBuy : item.baseSell;
+    const maxCount = catId === "pot" ? 5 : 7;
+    for (let c = 0; c <= maxCount; c++) {
+      if (checkValue(base + c * step)) return true;
+    }
+    return false;
+  } else {
+    const val = activeFilter.type === 'buy' ? item.buy : item.sell;
+    return checkValue(val);
+  }
+}
+
+function renderItemList() {
+  const container = document.getElementById("itemList");
+  const items = DATA[currentTab];
+  const tf = tabFilters[currentTab];
+  const active = tf.activeByMod[tf.mod];
+  const currentMod = tf.mod;
+
+  const filtered = items.filter(it => {
+    if (hideIdentified && userState.identified[it.name]) return false;
+    return matchItem(it, currentTab, active, currentMod);
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:#888; font-size:12px;">該当するアイテムがありません</div>`;
+    return;
+  }
+
+  const applyMod = (val) => {
+    if (currentMod === 'blessed') return val * 2;
+    if (currentMod === 'cursed') return Math.floor(val * 0.87);
+    return val;
+  };
+
+  container.innerHTML = filtered.map(item => {
+    const isId = !!userState.identified[item.name];
+    const memoVal = userState.memo[item.name] || "";
+
+    let nameClass = "item-name";
+    if (item.red) nameClass += " name-red";
+    if (item.blue) nameClass += " name-blue";
+
+    let detailHTML = "";
+    if (currentTab === "pot" || currentTab === "staff") {
+      const typeLabel = currentTab === "pot" ? "初期容量" : "初期回数";
+      let topBadges = `［${typeLabel}: ${item.initMin}～${item.initMax}］`;
+      if (item.push) topBadges += ` <span style="color:#ffca28; font-weight:bold;">［押す］</span>`;
+
+      const maxCount = currentTab === "pot" ? 5 : 7;
+      let cells = "";
+      for (let c = 0; c <= maxCount; c++) {
+        const b = applyMod(item.baseBuy + c * 100);
+        const s = applyMod(item.baseSell + c * 40);
+        
+        let hit = false;
+        if (active) {
+          if (active.type === 'buy' && active.val === b) hit = true;
+          if (active.type === 'sell' && active.val === s) hit = true;
+        }
+
+        cells += `
+          <div class="cap-cell ${hit ? 'is-hit' : ''}">
+            <b>[${c}]</b> 買:${b} / 売:${s}
+          </div>
+        `;
+      }
+
+      detailHTML = `
+        <div class="item-details">${topBadges}</div>
+        <div class="capacity-scroll-wrap">
+          <div class="capacity-table">${cells}</div>
+        </div>
+      `;
+    } else {
+      const b = applyMod(item.buy);
+      const s = applyMod(item.sell);
+      let note = "";
+      if (item.select) note = " ［選択］";
+      detailHTML = `
+        <div class="item-details">
+          <span>買:${b} / 売:${s}${note}</span>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="item-card ${isId ? 'is-identified' : ''}" id="card_${item.name}">
+        <div class="item-header" onclick="toggleIdentified('${item.name}')">
+          <span class="${nameClass}">${item.name}</span>
+          <span class="item-check-icon">${isId ? '✓ 識別済' : '未識別'}</span>
+        </div>
+        ${detailHTML}
+        <div class="item-memo-box">
+          <input type="text" class="memo-input" placeholder="仮名メモ（例: あおい草）"
+            value="${memoVal}" onchange="updateMemo('${item.name}', this.value)" onclick="event.stopPropagation()">
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleIdentified(name) {
+  userState.identified[name] = !userState.identified[name];
+  saveState();
+  const card = document.getElementById("card_" + name);
+  if (card) {
+    const isId = userState.identified[name];
+    if (isId) {
+      card.classList.add("is-identified");
+      card.querySelector(".item-check-icon").textContent = "✓ 識別済";
+    } else {
+      card.classList.remove("is-identified");
+      card.querySelector(".item-check-icon").textContent = "未識別";
+    }
+  }
+}
+
+function updateMemo(name, val) {
+  userState.memo[name] = val;
+  saveState();
+}
+
+function resetCurrentTab() {
+  if (!confirm("このタブの識別状態・仮名メモをリセットしますか？")) return;
+  DATA[currentTab].forEach(it => {
+    delete userState.identified[it.name];
+    delete userState.memo[it.name];
+  });
+  saveState();
+  renderItemList();
+}
+
+function resetAllTabs() {
+  if (!confirm("【全データ消去】\nすべての識別状態・仮名メモをリセットしますか？")) return;
+  userState = { identified: {}, memo: {} };
+  saveState();
+  renderItemList();
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
